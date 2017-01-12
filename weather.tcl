@@ -17,7 +17,7 @@
 # Edited Feb 01, 2014 - Kiely Allen- Removed Forecast (may tidy up output later and add it again), Added Barometer/Pressure (Rising & Falling), Added Windchill, Fixed Output Tidyness
 # Edited Feb 04, 2014 - David Moore - Color Changing Temperature, Aliases, Don't Show Windchill If There Is None
 # Edited Feb 09, 2014 - Kiely Allen/David Moore - Added Wind Gust, Cleaned Up Code, Fixed Multiple Choices Bug
-# Edited Feb 10, 2014 - David Moore - Don't show windchill if $windcf/$windcc is <0.5F than $tempf/$tempc. Wind would often be 'calm' and windchill would show 0.1-0.5F±
+# Edited Feb 10, 2014 - David Moore - Don't show windchill if $windcf/$windcc is <0.5F than $tempf/$tempc. Wind would often be 'calm' and windchill would show 0.1-0.5F?
 # Edited Feb 13, 2014 - Kiely Allen/David Moore - Remove metric related config checks, all output includes both imperial and metric. Don't show windchill if windchill is higher than $tempf, windchills under 1F of $tempf are insignificant
 # Edited Feb 14, 2014 - Kiely Allen - Removed custom !ws as it didn't work as exoected, (need to fix missing $windgm error)
 # Edited Jun 12, 2014 - Kiely Allen - Fixed $color extending to all text after $tempf with \003 (no-color)
@@ -50,20 +50,20 @@ proc pub_w {nick uhand handle chan input} {
   regsub -all "\n" $html "" html
   regexp {City Not Found} $html - nf
   if {[info exists nf]==1} {
-	putquick "PRIVMSG $chan :$input Não encontrado."
+	putquick "PRIVMSG $chan :$input NÃ£o encontrado."
 	return 0
   }
 
 # // Checks if there are multiple choices for the city eg. "detroit" which has 6 entries     
   regexp {Place: Temperature} $html - mc
   if {[info exists mc]==1} {
-    putquick "PRIVMSG $chan :Existem múltiplas entradas para $input. Tente refinar a busca adicionando o estado ou país."
+    putquick "PRIVMSG $chan :Existem mÃºltiplas entradas para $input. Tente refinar a busca adicionando o estado ou paÃ­s."
     return 0
   }
 
   regexp {Observed at<b>(.*)</b> </td} $html - loc
   if {[info exists loc]==0} { 
-	putquick "PRIVMSG $chan :Condições não disponíveis para $input. Tente refinar a busca adicionando o estado ou país."
+	putquick "PRIVMSG $chan :CondiÃ§Ãµees nÃ£o disponÃ­veis para $input. Tente refinar a busca adicionando o estado ou paÃ­s."
     return 0
   }
 
@@ -74,7 +74,7 @@ proc pub_w {nick uhand handle chan input} {
     
   regexp {Temperature</td>  <td>  <span class="nowrap"><b>(.*?)</b>&deg;F</span>  /  <span class="nowrap"><b>(.*?)</b>&deg;C</span>} $data - tempf tempc
   if {[info exists tempf]==0} { 
-    putquick "PRIVMSG $chan : Meteorologia para $loc não está disponível no momento."
+    putquick "PRIVMSG $chan : Meteorologia para $loc nÃ£o estÃ¡ disponÃ­vel no momento."
     return 0
   }
 
@@ -109,7 +109,11 @@ proc pub_w {nick uhand handle chan input} {
   if {$windm==0} { 
     set windout "Calmo"
   } else {	
-    set windout "$windd @ ${windk}km/h) com rajadas de até ${windgk}km/h"
+    set complement ";"
+    if {$windk < $windgk} {
+		set complement " com rajadas de atÃ© ${windgk}km/h;"
+	} 
+    set windout "$windd @ ${windk}km/h$complement"
   }
   
 # // Fahrenheit Color Changing. You can change colors based on fahrenheit temperatures. IRC allows only 15 colors. See mIRC color chart.
@@ -130,13 +134,49 @@ proc color {temp} {
   return $color
 }
 
+proc translateCondition {condition} {
+
+	switch $condition {
+	
+		"Mostly Cloudy" {
+			return "Nublado"
+		}
+		
+		"Sunny" {
+			return "Ensolarado"
+		}
+		
+		"Rainy" {
+		    return "Chuvoso"
+		}
+		
+		"Scattered Clouds" {
+			return "Nuvens dispersas"
+		}
+		
+		"Clear" {
+			return "CÃ©u limpo"
+		}
+		
+		"Partly Cloudy" {
+			return "Muito nublado"
+		}
+		
+		"Light Freezing Fog" {
+			return "Sincelo fraco"
+		}
+	}
+	
+}
+
 # // Reverse ${tempf}/${tempc} and ${windcf}/${windcc} if you want metric as priority
   set colorf [color $tempf]
+  set brCondition [translateCondition $cond]
   if {(([info exists windcf]==1)&&(abs($tempf - $windcf) > 1.0))&&($tempf > $windcf)} {
     set colorw [color $windcf]
-    putquick "PRIVMSG $chan :\00313$loc:\003 \002Temperatura:\002$colorf ${tempc}C\003 - \002Sensação térmica:\002$colorw ${windcc}C \00300- \002Umidade:\002 $hum - \002Vento:\002 $windout\- \002Condições:\002 $cond - \002Atualizado:\002 $updated"
+    putquick "PRIVMSG $chan :\00313$loc:\003 \002Temperatura:\002$colorf ${tempc}C\003; \002SensaÃ§Ã£o tÃ©rmica:\002$colorw ${windcc}C\00300; \002Umidade:\002 $hum; \002Vento:\002 $windout\ \002CondiÃ§Ãµes:\002 $brCondition; \002Atualizado:\002 $updated"
   }  else {
-    putquick "PRIVMSG $chan :\00313$loc:\003 \002Temperatura:\002$colorf ${tempc}C\003 - \002Umidade:\002 $hum - \002Vento:\002 $windout - \002Condições:\002 $cond - \002Atualizado:\002 $updated"
+    putquick "PRIVMSG $chan :\00313$loc:\003 \002Temperatura:\002$colorf ${tempc}C\003; \002Umidade:\002 $hum; \002Vento:\002 $windout \002CondiÃ§Ãµes:\002 $brCondition; \002Atualizado:\002 $updated"
   }
 }
 
